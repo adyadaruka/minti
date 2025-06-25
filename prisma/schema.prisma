@@ -1,0 +1,182 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String?
+  events      CalendarEvent[]
+  transactions Transaction[]
+  categories  Category[]
+  budgets     Budget[]
+  budgetGoals BudgetGoal[]
+  recurringTransactions RecurringTransaction[]
+  billReminders BillReminder[]
+  savingsGoals SavingsGoal[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime? @updatedAt
+}
+
+model CalendarEvent {
+  id          String   @id // Use Google Calendar event ID as primary key
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  description String?
+  start       DateTime
+  end         DateTime
+  category    String?
+  raw         Json
+  transactions Transaction[] // Link to transactions that might be triggered by this event
+  // Enhanced spending prediction
+  spendingProbability Float?
+  expectedSpendingRange Json? // [min, max] as JSON
+  spendingCategories Json? // Array of categories as JSON
+  confidence Float?
+  keywords Json? // Array of keywords as JSON
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  amount      Float
+  description String
+  date        DateTime
+  category    String?
+  eventId     String?  // Link to calendar event that might have triggered this spending
+  event       CalendarEvent? @relation(fields: [eventId], references: [id])
+  type        TransactionType
+  recurringTransactionId String? // Link to recurring transaction
+  recurringTransaction RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  name        String
+  color       String
+  budget      Float?
+  icon        String?  // Icon name for the category
+  isDefault   Boolean  @default(false)
+  budgets     Budget[] // Relation to budgets
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Budget {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  name        String
+  amount      Float
+  period      BudgetPeriod
+  startDate   DateTime
+  endDate     DateTime?
+  categoryId  String?  // Optional category-specific budget
+  category    Category? @relation(fields: [categoryId], references: [id])
+  spent       Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BudgetGoal {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  name        String
+  targetAmount Float
+  currentAmount Float  @default(0)
+  deadline    DateTime?
+  category    String?  // Category for the goal
+  color       String
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model RecurringTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  description String
+  amount      Float
+  category    String?
+  type        TransactionType
+  frequency   RecurringFrequency
+  startDate   DateTime
+  endDate     DateTime?
+  lastProcessed DateTime?
+  isActive    Boolean  @default(true)
+  transactions Transaction[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BillReminder {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  name        String
+  amount      Float
+  dueDate     DateTime
+  category    String?
+  isPaid      Boolean  @default(false)
+  reminderDays Int     @default(3) // Days before due date to remind
+  isRecurring Boolean  @default(false)
+  frequency   RecurringFrequency?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SavingsGoal {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  name        String
+  targetAmount Float
+  currentAmount Float  @default(0)
+  targetDate  DateTime?
+  monthlyContribution Float?
+  color       String
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum BudgetPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum RecurringFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}

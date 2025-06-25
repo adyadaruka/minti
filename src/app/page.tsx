@@ -1,103 +1,395 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/hooks/useAuth";
+import { useCalendar } from "@/hooks/useCalendar";
+import { useTransactions } from "@/hooks/useTransactions";
+import { LoginScreen } from "@/features/auth/LoginScreen";
+import { Dashboard } from "@/features/budget/Dashboard";
+import { PredictionsPage } from "@/features/predictions/PredictionsPage";
+import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
+import { AccountsPage } from "@/features/accounts/AccountsPage";
+import { Sidebar } from "@/components/Sidebar";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { User, CalendarEvent, Transaction, BudgetGoal, BillReminder, SavingsGoal, TransactionFormData, BudgetGoalFormData, BillReminderFormData, SavingsGoalFormData } from "@/types";
+import { APP_CONFIG } from "@/constants";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const { user, login, logout, loading: authLoading, getAccessToken } = useAuth();
+  const { events, syncing: calendarSyncing, error: calendarError, syncCalendar } = useCalendar(user);
+  const { transactions, addTransaction, loading: transactionsLoading } = useTransactions(user);
+  
+  // New state for advanced features
+  const [budgetGoals, setBudgetGoals] = useState<BudgetGoal[]>([]);
+  const [billReminders, setBillReminders] = useState<BillReminder[]>([]);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [activePage, setActivePage] = useState('dashboard');
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Load data when user changes
+  useEffect(() => {
+    if (user) {
+      loadAllData();
+      // Auto-sync calendar when user is authenticated
+      const accessToken = getAccessToken();
+      if (accessToken) {
+        syncCalendar(accessToken);
+      }
+    }
+  }, [user, getAccessToken, syncCalendar]);
+
+  const loadAllData = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      // Load budget goals
+      const goalsResponse = await fetch(`/api/budget-goals?userId=${user.id}`);
+      if (goalsResponse.ok) {
+        const goals = await goalsResponse.json();
+        setBudgetGoals(goals);
+      }
+
+      // Load bill reminders
+      const billsResponse = await fetch(`/api/bill-reminders?userId=${user.id}`);
+      if (billsResponse.ok) {
+        const bills = await billsResponse.json();
+        setBillReminders(bills);
+      }
+
+      // Load savings goals
+      const savingsResponse = await fetch(`/api/savings-goals?userId=${user.id}`);
+      if (savingsResponse.ok) {
+        const savings = await savingsResponse.json();
+        setSavingsGoals(savings);
+      }
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddBudgetGoal = async (data: BudgetGoalFormData) => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch('/api/budget-goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          userId: user.id,
+        }),
+      });
+
+      if (response.ok) {
+        const newGoal = await response.json();
+        setBudgetGoals(prev => [newGoal, ...prev]);
+      } else {
+        throw new Error('Failed to add budget goal');
+      }
+    } catch (error) {
+      console.error('Failed to add budget goal:', error);
+      throw error;
+    }
+  };
+
+  const handleAddBillReminder = async (data: BillReminderFormData) => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch('/api/bill-reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          userId: user.id,
+        }),
+      });
+
+      if (response.ok) {
+        const newBill = await response.json();
+        setBillReminders(prev => [newBill, ...prev]);
+      } else {
+        throw new Error('Failed to add bill reminder');
+      }
+    } catch (error) {
+      console.error('Failed to add bill reminder:', error);
+      throw error;
+    }
+  };
+
+  const handleMarkBillAsPaid = async (id: string) => {
+    try {
+      const response = await fetch(`/api/bill-reminders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPaid: true }),
+      });
+
+      if (response.ok) {
+        setBillReminders(prev => 
+          prev.map(bill => 
+            bill.id === id ? { ...bill, isPaid: true } : bill
+          )
+        );
+      } else {
+        throw new Error('Failed to mark bill as paid');
+      }
+    } catch (error) {
+      console.error('Failed to mark bill as paid:', error);
+      throw error;
+    }
+  };
+
+  const handleAddSavingsGoal = async (data: SavingsGoalFormData) => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch('/api/savings-goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          userId: user.id,
+        }),
+      });
+
+      if (response.ok) {
+        const newGoal = await response.json();
+        setSavingsGoals(prev => [newGoal, ...prev]);
+      } else {
+        throw new Error('Failed to add savings goal');
+      }
+    } catch (error) {
+      console.error('Failed to add savings goal:', error);
+      throw error;
+    }
+  };
+
+  const handleAddTransaction = async (data: TransactionFormData) => {
+    try {
+      const result = await addTransaction(data);
+      return result;
+    } catch (error) {
+      console.error('Failed to add transaction:', error);
+      throw error;
+    }
+  };
+
+  // Calculate totals
+  const totals = {
+    income: transactions
+      .filter(t => t.type === 'INCOME')
+      .reduce((sum, t) => sum + t.amount, 0),
+    expenses: transactions
+      .filter(t => t.type === 'EXPENSE')
+      .reduce((sum, t) => sum + t.amount, 0),
+    balance: transactions
+      .reduce((sum, t) => sum + (t.type === 'INCOME' ? t.amount : -t.amount), 0),
+  };
+
+  // Calculate stats for sidebar
+  const sidebarStats = {
+    totalBalance: totals.balance,
+    monthlySpending: totals.expenses,
+    upcomingBills: billReminders
+      .filter(bill => !bill.isPaid)
+      .reduce((sum, bill) => sum + bill.amount, 0),
+    activeGoals: budgetGoals.filter(goal => goal.isActive).length,
+  };
+
+  // Render page content based on active page
+  const renderPageContent = () => {
+    if (!user) return null;
+    
+    switch (activePage) {
+      case 'dashboard':
+        return (
+          <Dashboard
+            user={user}
+            events={events}
+            transactions={transactions}
+            budgetGoals={budgetGoals}
+            billReminders={billReminders}
+            savingsGoals={savingsGoals}
+            totals={totals}
+            syncing={calendarSyncing || transactionsLoading || loading}
+            error={calendarError}
+            onLogout={logout}
+            onAddTransaction={handleAddTransaction}
+            onAddBudgetGoal={handleAddBudgetGoal}
+            onAddBillReminder={handleAddBillReminder}
+            onMarkBillAsPaid={handleMarkBillAsPaid}
+            onAddSavingsGoal={handleAddSavingsGoal}
+          />
+        );
+      case 'predictions':
+        return (
+          <PredictionsPage
+            events={events}
+            transactions={transactions}
+            user={user}
+          />
+        );
+      case 'analytics':
+        return (
+          <AnalyticsPage
+            transactions={transactions}
+            user={user}
+          />
+        );
+      case 'accounts':
+        return (
+          <AccountsPage
+            user={user}
+          />
+        );
+      case 'goals':
+        return (
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">Financial Goals</h1>
+              <p className="text-gray-400">Track your progress towards financial milestones</p>
+            </div>
+            {/* Goals content would go here */}
+            <div className="text-center py-12">
+              <p className="text-gray-400">Goals page content coming soon...</p>
+            </div>
+          </div>
+        );
+      case 'bills':
+        return (
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">Bill Management</h1>
+              <p className="text-gray-400">Manage your recurring bills and payments</p>
+            </div>
+            {/* Bills content would go here */}
+            <div className="text-center py-12">
+              <p className="text-gray-400">Bills page content coming soon...</p>
+            </div>
+          </div>
+        );
+      case 'transactions':
+        return (
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">Transactions</h1>
+              <p className="text-gray-400">View and manage all your financial transactions</p>
+            </div>
+            {/* Transactions content would go here */}
+            <div className="text-center py-12">
+              <p className="text-gray-400">Transactions page content coming soon...</p>
+            </div>
+          </div>
+        );
+      case 'budget':
+        return (
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">Budget Planning</h1>
+              <p className="text-gray-400">Set and track your spending limits</p>
+            </div>
+            {/* Budget content would go here */}
+            <div className="text-center py-12">
+              <p className="text-gray-400">Budget page content coming soon...</p>
+            </div>
+          </div>
+        );
+      case 'settings':
+        return (
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
+              <p className="text-gray-400">Configure your account and preferences</p>
+            </div>
+            {/* Settings content would go here */}
+            <div className="text-center py-12">
+              <p className="text-gray-400">Settings page content coming soon...</p>
+            </div>
+          </div>
+        );
+      default:
+        return (
+          <Dashboard
+            user={user}
+            events={events}
+            transactions={transactions}
+            budgetGoals={budgetGoals}
+            billReminders={billReminders}
+            savingsGoals={savingsGoals}
+            totals={totals}
+            syncing={calendarSyncing || transactionsLoading || loading}
+            error={calendarError}
+            onLogout={logout}
+            onAddTransaction={handleAddTransaction}
+            onAddBudgetGoal={handleAddBudgetGoal}
+            onAddBillReminder={handleAddBillReminder}
+            onMarkBillAsPaid={handleMarkBillAsPaid}
+            onAddSavingsGoal={handleAddSavingsGoal}
+          />
+        );
+    }
+  };
+
+  // Show loading screen while auth is loading
+  if (authLoading) {
+    return <LoadingScreen />;
+  }
+
+  // Show login screen if not authenticated
+  if (!user) {
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="login"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900"
+        >
+          <LoginScreen onLogin={login} />
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
+
+  // Show main app with sidebar if authenticated
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key="app"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900"
+      >
+        {/* Sidebar */}
+        <Sidebar
+          activePage={activePage}
+          onPageChange={setActivePage}
+          user={user || { id: '', name: '', email: '' }}
+          stats={sidebarStats}
+        />
+
+        {/* Main Content */}
+        <div className="ml-64 p-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activePage}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderPageContent()}
+            </motion.div>
+          </AnimatePresence>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
