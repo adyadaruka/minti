@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🍃 Minty - Smart Budgeting App
 
 A modern, intelligent budgeting application that predicts expenses based on your Google Calendar events and helps you stay on top of your finances.
@@ -196,3 +197,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 **Made with ❤️ for better financial management**
+=======
+# minti
+>>>>>>> f23ea21449abec4a3dbc51ad57ade33a4aaa819b
