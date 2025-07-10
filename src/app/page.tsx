@@ -14,6 +14,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { User, CalendarEvent, Transaction, BudgetGoal, BillReminder, SavingsGoal, TransactionFormData, BudgetGoalFormData, BillReminderFormData, SavingsGoalFormData } from "@/types";
 import { APP_CONFIG } from "@/constants";
+import { CalendarInsightsPage } from '@/features/calendar/CalendarInsightsPage';
+import { NotificationsPanel } from '@/components/NotificationsPanel';
 
 export default function Home() {
   const { user, login, logout, loading: authLoading, getAccessToken } = useAuth();
@@ -26,18 +28,40 @@ export default function Home() {
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(false);
   const [activePage, setActivePage] = useState('dashboard');
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Load data when user changes
   useEffect(() => {
     if (user) {
+      console.log('User authenticated, loading all data...');
       loadAllData();
       // Auto-sync calendar when user is authenticated
       const accessToken = getAccessToken();
+      console.log('Auto-sync calendar - access token available:', !!accessToken);
       if (accessToken) {
+        console.log('Auto-syncing calendar...');
         syncCalendar(accessToken);
+      } else {
+        console.log('No access token available for auto-sync');
       }
+    } else {
+      console.log('No user authenticated');
     }
   }, [user, getAccessToken, syncCalendar]);
+
+  // Additional effect to sync calendar when component mounts and user is already authenticated
+  useEffect(() => {
+    if (user && events.length === 0) {
+      const accessToken = getAccessToken();
+      console.log('User authenticated but no events found, checking for access token...');
+      if (accessToken) {
+        console.log('User authenticated but no events found, triggering sync...');
+        syncCalendar(accessToken);
+      } else {
+        console.log('User authenticated but no access token available');
+      }
+    }
+  }, [user, events.length, getAccessToken, syncCalendar]);
 
   const loadAllData = async () => {
     if (!user) return;
@@ -179,6 +203,26 @@ export default function Home() {
     }
   };
 
+  const handleSyncCalendar = async () => {
+    const accessToken = getAccessToken();
+    console.log('Manual sync triggered');
+    console.log('Access token available:', !!accessToken);
+    console.log('Access token length:', accessToken?.length);
+    console.log('User:', user);
+    if (accessToken) {
+      console.log('Starting manual calendar sync...');
+      try {
+        await syncCalendar(accessToken);
+        console.log('Manual calendar sync completed');
+      } catch (error) {
+        console.error('Manual calendar sync failed:', error);
+      }
+    } else {
+      console.error('No access token available for calendar sync');
+      alert('No access token available. Please log in again.');
+    }
+  };
+
   // Calculate totals
   const totals = {
     income: transactions
@@ -224,6 +268,7 @@ export default function Home() {
             onAddBillReminder={handleAddBillReminder}
             onMarkBillAsPaid={handleMarkBillAsPaid}
             onAddSavingsGoal={handleAddSavingsGoal}
+            onSyncCalendar={handleSyncCalendar}
           />
         );
       case 'predictions':
@@ -312,6 +357,13 @@ export default function Home() {
             </div>
           </div>
         );
+      case 'calendar-insights':
+        return (
+          <CalendarInsightsPage
+            events={events}
+            user={user}
+          />
+        );
       default:
         return (
           <Dashboard
@@ -330,6 +382,7 @@ export default function Home() {
             onAddBillReminder={handleAddBillReminder}
             onMarkBillAsPaid={handleMarkBillAsPaid}
             onAddSavingsGoal={handleAddSavingsGoal}
+            onSyncCalendar={handleSyncCalendar}
           />
         );
     }
@@ -371,8 +424,10 @@ export default function Home() {
         <Sidebar
           activePage={activePage}
           onPageChange={setActivePage}
-          user={user || { id: '', name: '', email: '' }}
+          user={user}
           stats={sidebarStats}
+          onLogout={logout}
+          onNotificationsClick={() => setShowNotifications(true)}
         />
 
         {/* Main Content */}
@@ -389,6 +444,15 @@ export default function Home() {
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {/* Notifications Panel */}
+        {user && (
+          <NotificationsPanel
+            user={user}
+            isOpen={showNotifications}
+            onClose={() => setShowNotifications(false)}
+          />
+        )}
       </motion.div>
     </AnimatePresence>
   );

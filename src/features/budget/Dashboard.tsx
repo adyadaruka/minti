@@ -30,6 +30,7 @@ interface DashboardProps {
   onAddBillReminder: (data: any) => Promise<void>;
   onMarkBillAsPaid: (id: string) => Promise<void>;
   onAddSavingsGoal: (data: any) => Promise<void>;
+  onSyncCalendar?: () => Promise<void>;
 }
 
 export function Dashboard({
@@ -48,6 +49,7 @@ export function Dashboard({
   onAddBillReminder,
   onMarkBillAsPaid,
   onAddSavingsGoal,
+  onSyncCalendar,
 }: DashboardProps) {
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -133,6 +135,14 @@ export function Dashboard({
           >
             + Add Transaction
           </Button>
+          {onSyncCalendar && (
+            <Button
+              onClick={onSyncCalendar}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Sync Calendar
+            </Button>
+          )}
           <Button onClick={onLogout} variant="outline" size="lg">
             Sign Out
           </Button>
@@ -440,7 +450,23 @@ export function Dashboard({
                       </svg>
                     </div>
                     <h3 className="text-lg font-semibold text-white mb-2">No Events Found</h3>
-                    <p className="text-gray-400">Connect your Google Calendar to see your events and spending predictions.</p>
+                    <p className="text-gray-400 mb-4">Connect your Google Calendar to see your events and spending predictions.</p>
+                    {onSyncCalendar && (
+                      <Button
+                        onClick={onSyncCalendar}
+                        className="bg-blue-600 hover:bg-blue-700"
+                        disabled={syncing}
+                      >
+                        {syncing ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Syncing...
+                          </div>
+                        ) : (
+                          'Sync Google Calendar'
+                        )}
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               )}

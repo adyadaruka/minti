@@ -1,6 +1,6 @@
 "use client";
 
-const CLIENT_ID = "191753538716-8j1qbfgmtjmhbd827n1tb0omtddh7tca.apps.googleusercontent.com";
+const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "191753538716-8j1qbfgmtjmhbd827n1tb0omtddh7tca.apps.googleusercontent.com";
 const SCOPE = [
   "openid",
   "email",

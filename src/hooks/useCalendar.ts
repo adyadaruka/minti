@@ -10,30 +10,49 @@ export function useCalendar(user: User | null) {
   const [syncing, setSyncing] = useState(false);
 
   const fetchEvents = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user available for fetchEvents');
+      return;
+    }
     
     try {
+      console.log('Fetching events for user:', user.id);
       setLoading(true);
       setError(null);
       const data = await eventsApi.getByUserId(user.id);
+      console.log('Fetched events from API:', data.length);
       setEvents(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch events');
       console.error('Failed to fetch events:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch events');
     } finally {
       setLoading(false);
     }
   }, [user]);
 
   const syncCalendar = useCallback(async (accessToken: string) => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user available for syncCalendar');
+      return;
+    }
     
     try {
       setSyncing(true);
       setError(null);
       
+      console.log('Starting calendar sync for user:', user.id);
+      console.log('Access token available:', !!accessToken);
+      console.log('Access token length:', accessToken?.length);
+      
       // Fetch events from Google Calendar
       const rawEvents = await fetchGoogleCalendarEvents(accessToken);
+      console.log('Fetched events from Google Calendar:', rawEvents.length);
+      
+      if (rawEvents.length === 0) {
+        console.log('No events returned from Google Calendar API');
+        setSyncing(false);
+        return;
+      }
       
       // Process and analyze events with spending prediction
       const analyzed = rawEvents.map((event: any) => {
@@ -54,20 +73,28 @@ export function useCalendar(user: User | null) {
         };
       });
 
+      console.log('Analyzed events:', analyzed.length);
+      console.log('Sample analyzed event:', analyzed[0]);
+
       // Sync with backend
-      await eventsApi.sync(user, analyzed);
+      console.log('Syncing events to backend...');
+      const syncResult = await eventsApi.sync(user, analyzed);
+      console.log('Sync result:', syncResult);
       
       // Fetch updated events
+      console.log('Fetching updated events...');
       await fetchEvents();
+      console.log('Calendar sync completed successfully');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sync calendar');
       console.error('Calendar sync error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to sync calendar');
     } finally {
       setSyncing(false);
     }
   }, [user, fetchEvents]);
 
   useEffect(() => {
+    console.log('useCalendar useEffect triggered, user:', user?.id);
     fetchEvents();
   }, [fetchEvents]);
 

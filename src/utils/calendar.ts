@@ -1,20 +1,29 @@
 import { EVENT_CATEGORIES } from '@/constants';
 
 export async function fetchGoogleCalendarEvents(accessToken: string, retries = 3): Promise<any[]> {
+  console.log('fetchGoogleCalendarEvents called with token length:', accessToken?.length);
+  
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(
-        "https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=2500&singleEvents=true&orderBy=startTime&timeMin=" +
-          new Date(Date.now() - 1000 * 60 * 60 * 24 * 90).toISOString(),
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+      const timeMin = new Date(Date.now() - 1000 * 60 * 60 * 24 * 90).toISOString();
+      const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=2500&singleEvents=true&orderBy=startTime&timeMin=${timeMin}`;
+      
+      console.log(`Attempt ${attempt}: Fetching from Google Calendar API...`);
+      console.log('URL:', url);
+      
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      
+      console.log('Google API response status:', res.status);
+      console.log('Google API response headers:', Object.fromEntries(res.headers.entries()));
+      
       if (!res.ok) {
         if (res.status === 401) {
           // Token expired or invalid
+          console.log('Token expired or invalid (401)');
           if (typeof window !== 'undefined') {
             localStorage.removeItem('google_id_token');
             localStorage.removeItem('google_access_token');
@@ -23,11 +32,18 @@ export async function fetchGoogleCalendarEvents(accessToken: string, retries = 3
           }
           throw new Error("Google session expired. Please log in again.");
         }
+        const errorText = await res.text();
+        console.error('Google API error response:', errorText);
         throw new Error(`Google API error: ${res.status} ${res.statusText}`);
       }
+      
       const data = await res.json();
+      console.log('Google API response data:', data);
+      console.log('Number of events returned:', data.items?.length || 0);
+      
       return data.items || [];
     } catch (error) {
+      console.error(`Attempt ${attempt} failed:`, error);
       if (attempt === retries) {
         throw error;
       }
@@ -238,7 +254,7 @@ export function formatEventDate(dateString: string): string {
         year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
       });
     }
-  } catch {
+  } catch (error) {
     return "Invalid date";
   }
 } 

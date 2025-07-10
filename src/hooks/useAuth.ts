@@ -11,7 +11,7 @@ function parseJwt(token: string): User | null {
       picture: payload.picture,
       sub: payload.sub,
     };
-  } catch {
+  } catch (error) {
     return null;
   }
 }

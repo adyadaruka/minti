@@ -3,33 +3,23 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Tooltip, TooltipProvider } from '@radix-ui/react-tooltip';
-import { HomeIcon, IdCardIcon, ContainerIcon, CalendarIcon, BarChartIcon, GearIcon, LightningBoltIcon, ChartPieIcon, ValueIcon, TargetIcon } from '@radix-ui/react-icons';
+import { HomeIcon, IdCardIcon, ContainerIcon, CalendarIcon, BarChartIcon, GearIcon, LightningBoltIcon, ChartPieIcon, ValueIcon, TargetIcon, BellIcon } from '@radix-ui/react-icons';
 
 interface SidebarProps {
   activePage: string;
   onPageChange: (page: string) => void;
-  user: any;
+  user: User | null;
   stats: {
     totalBalance: number;
     monthlySpending: number;
     upcomingBills: number;
     activeGoals: number;
   };
+  onLogout: () => void;
+  onNotificationsClick: () => void;
 }
 
-const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: <HomeIcon />, description: 'Overview & Analytics' },
-  { id: 'transactions', label: 'Transactions', icon: <IdCardIcon />, description: 'View & Manage' },
-  { id: 'budget', label: 'Budget', icon: <ContainerIcon />, description: 'Set & Track Limits' },
-  { id: 'goals', label: 'Goals', icon: <TargetIcon />, description: 'Financial Goals' },
-  { id: 'bills', label: 'Bills', icon: <CalendarIcon />, description: 'Bill Reminders' },
-  { id: 'predictions', label: 'Predictions', icon: <LightningBoltIcon />, description: 'AI Spending Forecast' },
-  { id: 'analytics', label: 'Analytics', icon: <BarChartIcon />, description: 'Spending Analysis' },
-  { id: 'accounts', label: 'Accounts', icon: <ValueIcon />, description: 'Bank Connections' },
-  { id: 'settings', label: 'Settings', icon: <GearIcon />, description: 'App Configuration' },
-];
-
-export function Sidebar({ activePage, onPageChange, user, stats }: SidebarProps) {
+export function Sidebar({ activePage, onPageChange, user, stats, onLogout, onNotificationsClick }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   const quickStats = [
@@ -48,6 +38,28 @@ export function Sidebar({ activePage, onPageChange, user, stats }: SidebarProps)
       value: `$${stats.upcomingBills.toFixed(2)}`,
       color: 'text-orange-400'
     }
+  ];
+
+  const navigationItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: HomeIcon, href: '/' },
+    { id: 'predictions', label: 'Predictions', icon: LightningBoltIcon, href: '/predictions' },
+    { id: 'analytics', label: 'Analytics', icon: BarChartIcon, href: '/analytics' },
+    { id: 'calendar-insights', label: 'Calendar Insights', icon: CalendarIcon, href: '/calendar-insights' },
+    { id: 'accounts', label: 'Accounts', icon: IdCardIcon, href: '/accounts' },
+  ];
+
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: <HomeIcon />, description: 'Overview & Analytics' },
+    { id: 'transactions', label: 'Transactions', icon: <IdCardIcon />, description: 'View & Manage' },
+    { id: 'budget', label: 'Budget', icon: <ContainerIcon />, description: 'Set & Track Limits' },
+    { id: 'goals', label: 'Goals', icon: <TargetIcon />, description: 'Financial Goals' },
+    { id: 'bills', label: 'Bills', icon: <CalendarIcon />, description: 'Bill Reminders' },
+    { id: 'predictions', label: 'Predictions', icon: <LightningBoltIcon />, description: 'AI Spending Forecast' },
+    { id: 'analytics', label: 'Analytics', icon: <BarChartIcon />, description: 'Spending Analysis' },
+    { id: 'calendar-insights', label: 'Calendar Insights', icon: <CalendarIcon />, description: 'Smart Calendar Analysis' },
+    { id: 'accounts', label: 'Accounts', icon: <ValueIcon />, description: 'Bank Connections' },
+    { id: 'notifications', label: 'Notifications', icon: <BellIcon />, description: 'Alerts & Reminders', onClick: onNotificationsClick },
+    { id: 'settings', label: 'Settings', icon: <GearIcon />, description: 'App Configuration' },
   ];
 
   return (
@@ -99,7 +111,13 @@ export function Sidebar({ activePage, onPageChange, user, stats }: SidebarProps)
           {menuItems.map((item) => (
             <Tooltip key={item.id} content={item.label} delayDuration={0}>
               <button
-                onClick={() => onPageChange(item.id)}
+                onClick={() => {
+                  if (item.onClick) {
+                    item.onClick();
+                  } else {
+                    onPageChange(item.id);
+                  }
+                }}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-accent ${
                   activePage === item.id
                     ? 'bg-accent/20 text-accent border border-accent'

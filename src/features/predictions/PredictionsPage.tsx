@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { CalendarEvent, Transaction } from "@/types";
 import { formatDate } from "@/lib/utils";
+import { SpendingForecast } from '@/components/SpendingForecast';
 
 interface PredictionsPageProps {
   events: CalendarEvent[];
@@ -198,6 +199,9 @@ export function PredictionsPage({ events, transactions, user }: PredictionsPageP
           )}
         </Button>
       </div>
+
+      {/* Spending Forecast */}
+      <SpendingForecast user={user} />
 
       {/* Controls */}
       <div className="flex gap-4 items-center">

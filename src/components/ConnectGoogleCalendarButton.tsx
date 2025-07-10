@@ -1,12 +1,12 @@
 "use client";
 
-const CLIENT_ID = "191753538716-8j1qbfgmtjmhbd827n1tb0omtddh7tca.apps.googleusercontent.com";
-const REDIRECT_URI = typeof window !== "undefined" ? window.location.origin + "/api/google-callback" : "";
-const SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "191753538716-8j1qbfgmtjmhbd827n1tb0omtddh7tca.apps.googleusercontent.com";
+const REDIRECT_URI = "http://localhost:3000/google-callback";
+const SCOPE = "https://www.googleapis.com/auth/calendar.readonly openid email profile";
 
 export default function ConnectGoogleCalendarButton() {
   const handleConnect = () => {
-    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=token&scope=${encodeURIComponent(SCOPE)}&include_granted_scopes=true&prompt=consent`;
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token id_token&scope=${encodeURIComponent(SCOPE)}&nonce=nonce&prompt=consent`;
     window.location.href = url;
   };
 

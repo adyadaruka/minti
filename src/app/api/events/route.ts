@@ -25,9 +25,11 @@ export async function POST(req: NextRequest) {
     const { user, events } = body;
 
     console.log(`Processing ${events.length} events for user ${user.email}`);
+    console.log('User data:', { id: user.id, email: user.email, name: user.name });
 
     // Validate input
     if (!validateUser(user)) {
+      console.error('Invalid user data:', user);
       return NextResponse.json(
         { error: "Invalid user data" }, 
         { status: 400 }
@@ -35,6 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!Array.isArray(events)) {
+      console.error('Events is not an array:', typeof events);
       return NextResponse.json(
         { error: "Events must be an array" }, 
         { status: 400 }
@@ -44,6 +47,7 @@ export async function POST(req: NextRequest) {
     // Validate each event
     for (const event of events) {
       if (!validateEvent(event)) {
+        console.error('Invalid event data:', event);
         return NextResponse.json(
           { error: "Invalid event data" }, 
           { status: 400 }
@@ -53,6 +57,7 @@ export async function POST(req: NextRequest) {
 
     // Upsert user
     const userId = user.sub || user.id;
+    console.log('Upserting user with ID:', userId);
     await prisma.user.upsert({
       where: { email: user.email },
       update: { 
@@ -65,6 +70,7 @@ export async function POST(req: NextRequest) {
         name: user.name || user.email 
       },
     });
+    console.log('User upserted successfully');
 
     // Get existing events count before deletion
     const existingCount = await prisma.calendarEvent.count({
@@ -88,6 +94,7 @@ export async function POST(req: NextRequest) {
     const savedEvents = [];
     for (const event of uniqueEvents) {
       try {
+        console.log('Saving event:', event.id, event.title);
         const savedEvent = await prisma.calendarEvent.create({
           data: { 
             id: event.id,
@@ -128,31 +135,72 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
+    const category = searchParams.get("category");
+    const search = searchParams.get("search");
+    const upcoming = searchParams.get("upcoming");
+    const highSpending = searchParams.get("highSpending");
+    
+    console.log('GET /api/events called with userId:', userId);
+    console.log('Filters:', { category, search, upcoming, highSpending });
     
     if (!userId) {
+      console.error('Missing userId parameter');
       return NextResponse.json(
         { error: "Missing userId parameter" }, 
         { status: 400 }
       );
     }
 
-    // Calculate date range: 4 weeks in the past, 2 weeks in the future
+    // Build where clause
+    let whereClause: any = { userId };
+
+    // Date range: 1 year in the past, 2 years in the future
     const now = new Date();
-    const startDate = addDays(startOfDay(now), -28); // 4 weeks ago
-    const endDate = addDays(startOfDay(now), 14);    // 2 weeks in the future
+    const startDate = addDays(startOfDay(now), -365); // 1 year ago
+    const endDate = addDays(startOfDay(now), 730);    // 2 years in the future
+
+    whereClause.start = {
+      gte: startDate,
+      lte: endDate
+    };
+
+    // Category filter
+    if (category && category !== 'all') {
+      whereClause.category = category;
+    }
+
+    // Search filter
+    if (search) {
+      whereClause.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    // Upcoming events only
+    if (upcoming === 'true') {
+      whereClause.start = {
+        ...whereClause.start,
+        gte: now
+      };
+    }
+
+    // High spending probability events
+    if (highSpending === 'true') {
+      whereClause.spendingProbability = {
+        gte: 0.7
+      };
+    }
+
+    console.log('Where clause:', JSON.stringify(whereClause, null, 2));
 
     const events = await prisma.calendarEvent.findMany({ 
-      where: { 
-        userId,
-        start: {
-          gte: startDate,
-          lte: endDate
-        }
-      },
+      where: whereClause,
       orderBy: { start: 'asc' }
     });
     
     console.log(`Retrieved ${events.length} events for user ${userId}`);
+    console.log('Sample events:', events.slice(0, 3).map(e => ({ id: e.id, title: e.title, start: e.start })));
     
     return NextResponse.json(events);
   } catch (error) {
